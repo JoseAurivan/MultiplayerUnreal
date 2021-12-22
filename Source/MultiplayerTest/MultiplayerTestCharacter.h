@@ -65,6 +65,9 @@ public:
 	UPROPERTY(Replicated)
 	float adsSpeed = 200.0f;
 
+	UPROPERTY(Replicated)
+	float crounchSpeed = 100.0f;
+
 	UPROPERTY(Replicated, BlueprintReadOnly, VisibleAnywhere)
 	bool bIsEquipped;
 
@@ -82,6 +85,9 @@ public:
 
 	UPROPERTY(Replicated, EditAnywhere, Category="Animation")
 	UAnimMontage* M_FireWeapon;
+
+	UPROPERTY(Replicated, BlueprintReadWrite, EditAnywhere ,Category="Movement")
+	bool bIsCrounched;
 
 	UFUNCTION(Client,Unreliable,BlueprintCallable, CallInEditor, Category="Score")
 	void ClientUpdateScore();
@@ -142,6 +148,12 @@ public:
 	
 	UFUNCTION(Server,Reliable,BlueprintCallable,Category="Respawn")
 	void ServerRespawnPawn();
+
+	UFUNCTION(Client, Unreliable, Category="Movement")
+	void ClientPLayerCrounch();
+
+	UFUNCTION(Server, Reliable, Category="Movement")
+	void ServerPLayerCrounch();
 	
 	
 

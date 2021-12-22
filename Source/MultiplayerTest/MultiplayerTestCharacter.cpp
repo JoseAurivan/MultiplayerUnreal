@@ -29,6 +29,7 @@ AMultiplayerTestCharacter::AMultiplayerTestCharacter()
 	bIsEquipped = false;
 	DamageReceived = 0;
 	bIsDead = false;
+	bIsCrounched = false;
 
 	//Set Health Component
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComponent"));
@@ -60,6 +61,7 @@ AMultiplayerTestCharacter::AMultiplayerTestCharacter()
 	GetCharacterMovement()->AirControl = 0.2f;
 	GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
 	GetCharacterMovement()->SetIsReplicated(true);
+
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -104,6 +106,8 @@ void AMultiplayerTestCharacter::SetupPlayerInputComponent(class UInputComponent*
 	PlayerInputComponent->BindAction("Ads", IE_Released, this, &AMultiplayerTestCharacter::ClientAdsOff);
 
 	PlayerInputComponent->BindAction("FireWeapon", IE_Pressed, this, &AMultiplayerTestCharacter::MulticastFireWeapon);
+
+	PlayerInputComponent->BindAction("Crounch",IE_Pressed,this,&AMultiplayerTestCharacter::ClientPLayerCrounch);
 
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AMultiplayerTestCharacter::MoveForward);
@@ -210,17 +214,22 @@ void AMultiplayerTestCharacter::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(AMultiplayerTestCharacter, DamageReceived);
 	DOREPLIFETIME(AMultiplayerTestCharacter, bIsDead);
 	DOREPLIFETIME(AMultiplayerTestCharacter, M_FireWeapon);
+	DOREPLIFETIME(AMultiplayerTestCharacter, bIsCrounched);
+	DOREPLIFETIME(AMultiplayerTestCharacter, crounchSpeed);
 }
 
 void AMultiplayerTestCharacter::ClientStopSprint_Implementation()
 {
-	GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
-	ServerStopSprint();
+	if (!bIsAds && !bIsCrounched)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
+		ServerStopSprint();
+	}
 }
 
 void AMultiplayerTestCharacter::ClientStartSprint_Implementation()
 {
-	if (!bIsAds)
+	if (!bIsAds && !bIsCrounched)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = maxWalkSpeed;
 		ServerStartSprint();
@@ -230,14 +239,14 @@ void AMultiplayerTestCharacter::ClientStartSprint_Implementation()
 void AMultiplayerTestCharacter::ServerStartSprint_Implementation()
 {
 	if (!bIsAds)
-	{
 		GetCharacterMovement()->MaxWalkSpeed = maxWalkSpeed;
-	}
+	
 }
 
 void AMultiplayerTestCharacter::ServerStopSprint_Implementation()
 {
-	GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
+	if (!bIsAds)
+		GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
 }
 
 
@@ -256,7 +265,8 @@ void AMultiplayerTestCharacter::ServerEquip_Implementation(TSubclassOf<AWeaponMa
 void AMultiplayerTestCharacter::ClientAdsOn_Implementation()
 {
 	bIsAds = true;
-	GetCharacterMovement()->MaxWalkSpeed = adsSpeed;
+	if(!bIsCrounched)
+		GetCharacterMovement()->MaxWalkSpeed = adsSpeed;
 	CameraBoom->TargetArmLength = 150.0f;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	bUseControllerRotationYaw = true;
@@ -266,7 +276,8 @@ void AMultiplayerTestCharacter::ClientAdsOn_Implementation()
 void AMultiplayerTestCharacter::ClientAdsOff_Implementation()
 {
 	bIsAds = false;
-	GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
+	if(!bIsCrounched)
+		GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
 	CameraBoom->TargetArmLength = 300.0f;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	bUseControllerRotationYaw = false;
@@ -277,7 +288,8 @@ void AMultiplayerTestCharacter::ServerAdsOn_Implementation()
 {
 	bIsAds = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
-	GetCharacterMovement()->MaxWalkSpeed = adsSpeed;
+	if(!bIsCrounched)
+		GetCharacterMovement()->MaxWalkSpeed = adsSpeed;
 	bUseControllerRotationYaw = true;
 }
 
@@ -285,7 +297,8 @@ void AMultiplayerTestCharacter::ServerAdsOff_Implementation()
 {
 	bIsAds = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
+	if(!bIsCrounched)
+		GetCharacterMovement()->MaxWalkSpeed = minWalkSpeed;
 	bUseControllerRotationYaw = false;
 }
 
@@ -361,4 +374,31 @@ void AMultiplayerTestCharacter::ServerRespawnPawn_Implementation()
 {
 	AMultiplayerTestGameMode* GameMode = Cast<AMultiplayerTestGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	GameMode->RespawnRequested(SpawnPoint,GetController());
+}
+
+void AMultiplayerTestCharacter::ClientPLayerCrounch_Implementation()
+{
+	if(!bIsCrounched)
+		GetCharacterMovement()->MaxWalkSpeed=crounchSpeed;
+		
+	else	
+		GetCharacterMovement()->MaxWalkSpeed=minWalkSpeed;
+			
+	ServerPLayerCrounch();
+	
+}
+
+void AMultiplayerTestCharacter::ServerPLayerCrounch_Implementation()
+{
+	if(!bIsCrounched)
+	{
+		bIsCrounched = true;
+		GetCharacterMovement()->MaxWalkSpeed=crounchSpeed;
+		
+	}else
+	{
+		bIsCrounched = false;
+		GetCharacterMovement()->MaxWalkSpeed=minWalkSpeed;
+		
+	}
 }
